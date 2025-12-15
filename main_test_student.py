@@ -5,25 +5,27 @@ import numpy as np
 from collections import OrderedDict
 import os
 import torch
-import requests
 
+# Import YOUR Student Architecture
 from models.network_swinir_student import SwinIR_Student as net
 from utils import util_calculate_psnr_ssim as util
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--task', type=str, default='color_dn', help='classical_sr, lightweight_sr, real_sr, '
+    # Task: Default to classical_sr since that is your project
+    parser.add_argument('--task', type=str, default='classical_sr', help='classical_sr, lightweight_sr, real_sr, '
                                                                      'gray_dn, color_dn, jpeg_car, color_jpeg_car')
-    parser.add_argument('--scale', type=int, default=1, help='scale factor: 1, 2, 3, 4, 8') # 1 for dn and jpeg car
+    # Scale: Default to 4 (Your project is x4)
+    parser.add_argument('--scale', type=int, default=4, help='scale factor: 1, 2, 3, 4, 8')
     parser.add_argument('--noise', type=int, default=15, help='noise level: 15, 25, 50')
     parser.add_argument('--jpeg', type=int, default=40, help='scale factor: 10, 20, 30, 40')
-    parser.add_argument('--training_patch_size', type=int, default=128, help='patch size used in training SwinIR. '
-                                       'Just used to differentiate two different settings in Table 2 of the paper. '
-                                       'Images are NOT tested patch by patch.')
+    parser.add_argument('--training_patch_size', type=int, default=128, help='patch size used in training SwinIR.')
     parser.add_argument('--large_model', action='store_true', help='use large model, only provided for real image sr')
-    parser.add_argument('--model_path', type=str,
-                        default='model_zoo/swinir/001_classicalSR_DIV2K_s48w8_SwinIR-M_x2.pth')
+    
+    # IMPORTANT: Removed default path. You MUST provide the path to your trained brain.
+    parser.add_argument('--model_path', type=str, required=True, help='Path to the trained student model (.pth). REQUIRED.')
+    
     parser.add_argument('--folder_lq', type=str, default=None, help='input low-quality test image folder')
     parser.add_argument('--folder_gt', type=str, default=None, help='input ground-truth test image folder')
     parser.add_argument('--tile', type=int, default=None, help='Tile size, None for no tile during testing (testing as a whole)')
@@ -31,23 +33,25 @@ def main():
     args = parser.parse_args()
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    # set up model
-    if os.path.exists(args.model_path):
-        print(f'loading model from {args.model_path}')
-    else:
-        os.makedirs(os.path.dirname(args.model_path), exist_ok=True)
-        url = 'https://github.com/JingyunLiang/SwinIR/releases/download/v0.0/{}'.format(os.path.basename(args.model_path))
-        r = requests.get(url, allow_redirects=True)
-        print(f'downloading model {args.model_path}')
-        open(args.model_path, 'wb').write(r.content)
+
+    # ----------------------------------------
+    # 1. Setup Model
+    # ----------------------------------------
+    if not os.path.exists(args.model_path):
+        raise FileNotFoundError(f'Model not found at {args.model_path}. Please check the filename.')
+    
+    print(f'Loading model from {args.model_path}')
 
     model = define_model(args)
     model.eval()
     model = model.to(device)
 
-    # setup folder and path
+    # ----------------------------------------
+    # 2. Setup Folders
+    # ----------------------------------------
     folder, save_dir, border, window_size = setup(args)
     os.makedirs(save_dir, exist_ok=True)
+    
     test_results = OrderedDict()
     test_results['psnr'] = []
     test_results['ssim'] = []
@@ -57,6 +61,9 @@ def main():
     test_results['psnrb_y'] = []
     psnr, ssim, psnr_y, ssim_y, psnrb, psnrb_y = 0, 0, 0, 0, 0, 0
 
+    # ----------------------------------------
+    # 3. Inference Loop
+    # ----------------------------------------
     for idx, path in enumerate(sorted(glob.glob(os.path.join(folder, '*')))):
         # read image
         imgname, img_lq, img_gt = get_image_pair(args, path)  # image to HWC-BGR, float32
@@ -71,7 +78,10 @@ def main():
             w_pad = (w_old // window_size + 1) * window_size - w_old
             img_lq = torch.cat([img_lq, torch.flip(img_lq, [2])], 2)[:, :, :h_old + h_pad, :]
             img_lq = torch.cat([img_lq, torch.flip(img_lq, [3])], 3)[:, :, :, :w_old + w_pad]
+            
+            # Run the Student Model
             output = test(img_lq, model, args, window_size)
+            
             output = output[..., :h_old * args.scale, :w_old * args.scale]
 
         # save image
@@ -96,19 +106,16 @@ def main():
                 ssim_y = util.calculate_ssim(output, img_gt, crop_border=border, test_y_channel=True)
                 test_results['psnr_y'].append(psnr_y)
                 test_results['ssim_y'].append(ssim_y)
-            if args.task in ['jpeg_car', 'color_jpeg_car']:
-                psnrb = util.calculate_psnrb(output, img_gt, crop_border=border, test_y_channel=False)
-                test_results['psnrb'].append(psnrb)
-                if args.task in ['color_jpeg_car']:
-                    psnrb_y = util.calculate_psnrb(output, img_gt, crop_border=border, test_y_channel=True)
-                    test_results['psnrb_y'].append(psnrb_y)
-            print('Testing {:d} {:20s} - PSNR: {:.2f} dB; SSIM: {:.4f}; PSNRB: {:.2f} dB;'
-                  'PSNR_Y: {:.2f} dB; SSIM_Y: {:.4f}; PSNRB_Y: {:.2f} dB.'.
-                  format(idx, imgname, psnr, ssim, psnrb, psnr_y, ssim_y, psnrb_y))
+            
+            # Print results for this image
+            print('Testing {:d} {:20s} - PSNR: {:.2f} dB; SSIM: {:.4f}; PSNR_Y: {:.2f} dB; SSIM_Y: {:.4f}'.
+                  format(idx, imgname, psnr, ssim, psnr_y, ssim_y))
         else:
             print('Testing {:d} {:20s}'.format(idx, imgname))
 
-    # summarize psnr/ssim
+    # ----------------------------------------
+    # 4. Summary
+    # ----------------------------------------
     if img_gt is not None:
         ave_psnr = sum(test_results['psnr']) / len(test_results['psnr'])
         ave_ssim = sum(test_results['ssim']) / len(test_results['ssim'])
@@ -117,103 +124,45 @@ def main():
             ave_psnr_y = sum(test_results['psnr_y']) / len(test_results['psnr_y'])
             ave_ssim_y = sum(test_results['ssim_y']) / len(test_results['ssim_y'])
             print('-- Average PSNR_Y/SSIM_Y: {:.2f} dB; {:.4f}'.format(ave_psnr_y, ave_ssim_y))
-        if args.task in ['jpeg_car', 'color_jpeg_car']:
-            ave_psnrb = sum(test_results['psnrb']) / len(test_results['psnrb'])
-            print('-- Average PSNRB: {:.2f} dB'.format(ave_psnrb))
-            if args.task in ['color_jpeg_car']:
-                ave_psnrb_y = sum(test_results['psnrb_y']) / len(test_results['psnrb_y'])
-                print('-- Average PSNRB_Y: {:.2f} dB'.format(ave_psnrb_y))
 
 
 def define_model(args):
-    # This function is now for building and loading OUR STUDENT models.
-
-    # ----------------------------------------
-    # 001 classical image sr / 002 lightweight image sr
-    # ----------------------------------------
+    # Setup for our Lightweight Student (Model C / A / B)
     if args.task in ['classical_sr', 'lightweight_sr']:
         model = net(upscale=args.scale, in_chans=3, img_size=64, window_size=8,
                     img_range=1., depths=[4, 4, 4, 4], embed_dim=60, num_heads=[6, 6, 6, 6],
                     mlp_ratio=2, upsampler='pixelshuffle', resi_connection='1conv')
-
-    # ----------------------------------------
-    # 003 real-world image sr
-    # ----------------------------------------
-    elif args.task == 'real_sr':
-        model = net(upscale=4, in_chans=3, img_size=64, window_size=8,
-                    img_range=1., depths=[4, 4, 4, 4], embed_dim=60, num_heads=[6, 6, 6, 6],
-                    mlp_ratio=2, upsampler='nearest+conv', resi_connection='1conv')
-
-    # ----------------------------------------
-    # 004 grayscale image denoising
-    # ----------------------------------------
-    elif args.task == 'gray_dn':
-        model = net(upscale=1, in_chans=1, img_size=128, window_size=8,
-                    img_range=1., depths=[4, 4, 4, 4], embed_dim=60, num_heads=[6, 6, 6, 6],
-                    mlp_ratio=2, upsampler='', resi_connection='1conv')
-
-    # ----------------------------------------
-    # 005 color image denoising
-    # ----------------------------------------
-    elif args.task == 'color_dn':
+    else:
+        # Fallback for other tasks if you ever use them
+        # (This keeps the code from breaking if you accidentally pick 'gray_dn')
         model = net(upscale=1, in_chans=3, img_size=128, window_size=8,
                     img_range=1., depths=[4, 4, 4, 4], embed_dim=60, num_heads=[6, 6, 6, 6],
                     mlp_ratio=2, upsampler='', resi_connection='1conv')
 
-    # ----------------------------------------
-    # 006 JPEG compression artifact reduction
-    # ----------------------------------------
-    elif args.task in ['jpeg_car', 'color_jpeg_car']:
-        in_chans = 1 if 'gray' in args.task else 3
-        model = net(upscale=1, in_chans=in_chans, img_size=126, window_size=7,
-                    img_range=255., depths=[4, 4, 4, 4], embed_dim=60, num_heads=[6, 6, 6, 6],
-                    mlp_ratio=2, upsampler='', resi_connection='1conv')
-
-    # ----------------------------------------
-    # This is the new, corrected loading logic for our trained models.
-    # ----------------------------------------
+    # Load the Trained Brain
     pretrained_model = torch.load(args.model_path)
-    # The KAIR framework saves our trained model with the key 'params'.
     param_key = 'params' 
     if param_key in pretrained_model:
         model.load_state_dict(pretrained_model[param_key], strict=True)
     else:
-        # If 'params' is not found, it might be a different type of checkpoint.
         model.load_state_dict(pretrained_model, strict=True)
 
     return model
 
 
 def setup(args):
-    # 001 classical image sr/ 002 lightweight image sr
+    # Define where the results get saved based on the task
     if args.task in ['classical_sr', 'lightweight_sr']:
         save_dir = f'results/swinir_{args.task}_x{args.scale}'
         folder = args.folder_gt
         border = args.scale
         window_size = 8
-
-    # 003 real-world image sr
-    elif args.task in ['real_sr']:
-        save_dir = f'results/swinir_{args.task}_x{args.scale}'
-        if args.large_model:
-            save_dir += '_large'
-        folder = args.folder_lq
-        border = 0
-        window_size = 8
-
-    # 004 grayscale image denoising/ 005 color image denoising
-    elif args.task in ['gray_dn', 'color_dn']:
-        save_dir = f'results/swinir_{args.task}_noise{args.noise}'
+    else:
+        # Default fallback
+        save_dir = f'results/swinir_{args.task}'
         folder = args.folder_gt
         border = 0
         window_size = 8
-
-    # 006 JPEG compression artifact reduction
-    elif args.task in ['jpeg_car', 'color_jpeg_car']:
-        save_dir = f'results/swinir_{args.task}_jpeg{args.jpeg}'
-        folder = args.folder_gt
-        border = 0
-        window_size = 7
 
     return folder, save_dir, border, window_size
 
@@ -221,58 +170,33 @@ def setup(args):
 def get_image_pair(args, path):
     (imgname, imgext) = os.path.splitext(os.path.basename(path))
 
-    # 001 classical image sr/ 002 lightweight image sr (load lq-gt image pairs)
-    if args.task in ['classical_sr', 'lightweight_sr']:
-        img_gt = cv2.imread(path, cv2.IMREAD_COLOR).astype(np.float32) / 255.
-        img_lq = cv2.imread(f'{args.folder_lq}/{imgname}x{args.scale}{imgext}', cv2.IMREAD_COLOR).astype(
-            np.float32) / 255.
-
-    # 003 real-world image sr (load lq image only)
-    elif args.task in ['real_sr']:
-        img_gt = None
-        img_lq = cv2.imread(path, cv2.IMREAD_COLOR).astype(np.float32) / 255.
-
-    # 004 grayscale image denoising (load gt image and generate lq image on-the-fly)
-    elif args.task in ['gray_dn']:
-        img_gt = cv2.imread(path, cv2.IMREAD_GRAYSCALE).astype(np.float32) / 255.
-        np.random.seed(seed=0)
-        img_lq = img_gt + np.random.normal(0, args.noise / 255., img_gt.shape)
-        img_gt = np.expand_dims(img_gt, axis=2)
-        img_lq = np.expand_dims(img_lq, axis=2)
-
-    # 005 color image denoising (load gt image and generate lq image on-the-fly)
-    elif args.task in ['color_dn']:
-        img_gt = cv2.imread(path, cv2.IMREAD_COLOR).astype(np.float32) / 255.
-        np.random.seed(seed=0)
-        img_lq = img_gt + np.random.normal(0, args.noise / 255., img_gt.shape)
-
-    # 006 grayscale JPEG compression artifact reduction (load gt image and generate lq image on-the-fly)
-    elif args.task in ['jpeg_car']:
-        img_gt = cv2.imread(path, cv2.IMREAD_UNCHANGED)
-        if img_gt.ndim != 2:
-            img_gt = util.bgr2ycbcr(img_gt, y_only=True)
-        result, encimg = cv2.imencode('.jpg', img_gt, [int(cv2.IMWRITE_JPEG_QUALITY), args.jpeg])
-        img_lq = cv2.imdecode(encimg, 0)
-        img_gt = np.expand_dims(img_gt, axis=2).astype(np.float32) / 255.
-        img_lq = np.expand_dims(img_lq, axis=2).astype(np.float32) / 255.
-
-    # 006 JPEG compression artifact reduction (load gt image and generate lq image on-the-fly)
-    elif args.task in ['color_jpeg_car']:
-        img_gt = cv2.imread(path)
-        result, encimg = cv2.imencode('.jpg', img_gt, [int(cv2.IMWRITE_JPEG_QUALITY), args.jpeg])
-        img_lq = cv2.imdecode(encimg, 1)
-        img_gt = img_gt.astype(np.float32)/ 255.
-        img_lq = img_lq.astype(np.float32)/ 255.
+    # Classical SR: We usually load High-Res (GT) and generate Low-Res on the fly?
+    # Actually, in standard testing, we often read pre-generated LR images.
+    # The code below assumes you have a folder structure where LR images exist.
+    
+    # Load GT
+    img_gt = cv2.imread(path, cv2.IMREAD_COLOR).astype(np.float32) / 255.
+    
+    # Try to load LR from a specific folder if provided
+    if args.folder_lq:
+        # Construct LR filename. Standard is "Namex4.png"
+        img_lq_path = f'{args.folder_lq}/{imgname}x{args.scale}{imgext}'
+        img_lq = cv2.imread(img_lq_path, cv2.IMREAD_COLOR).astype(np.float32) / 255.
+    else:
+        # If no LR folder provided, we must degrade the GT on the fly (Bicubic)
+        # This is strictly for quick testing if you don't have LR dataset ready.
+        h, w = img_gt.shape[:2]
+        img_lq = cv2.resize(img_gt, (w // args.scale, h // args.scale), interpolation=cv2.INTER_CUBIC)
 
     return imgname, img_lq, img_gt
 
 
 def test(img_lq, model, args, window_size):
     if args.tile is None:
-        # test the image as a whole
+        # test the image as a whole (Standard for Set5)
         output = model(img_lq)
     else:
-        # test the image tile by tile
+        # test the image tile by tile (For huge images only)
         b, c, h, w = img_lq.size()
         tile = min(args.tile, h, w)
         assert tile % window_size == 0, "tile size should be a multiple of window_size"

@@ -13,6 +13,7 @@ model_zoo/
 # Experimental results - Do not upload generated models and logs
 superresolution/
 results/
+figs/
 
 # Any other local configuration files
 *.local

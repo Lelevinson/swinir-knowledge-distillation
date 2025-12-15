@@ -19,17 +19,13 @@ from models.select_model import define_Model
 
 '''
 # --------------------------------------------
-# training code for MSRResNet
-# --------------------------------------------
-# Kai Zhang (cskaizhang@gmail.com)
-# github: https://github.com/cszn/KAIR
-# --------------------------------------------
-# https://github.com/xinntao/BasicSR
+# Training Code for SwinIR Student
+# Modified from KAIR (Kai Zhang)
 # --------------------------------------------
 '''
 
 
-def main(json_path='options/train_msrresnet_psnr.json'):
+def main(json_path='options/swinir/train_swinir_student_500k.json'): # Updated Default
 
     '''
     # ----------------------------------------
@@ -57,21 +53,29 @@ def main(json_path='options/train_msrresnet_psnr.json'):
         util.mkdirs((path for key, path in opt['path'].items() if 'pretrained' not in key))
 
     # ----------------------------------------
-    # update opt
+    # update opt (Resume Logic)
     # ----------------------------------------
-    # -->-->-->-->-->-->-->-->-->-->-->-->-->-
+    # This block automatically searches for 'G', 'E', and 'P' models in the experiments folder
+    # to resume training if it was interrupted.
     init_iter_G, init_path_G = option.find_last_checkpoint(opt['path']['models'], net_type='G')
     init_iter_E, init_path_E = option.find_last_checkpoint(opt['path']['models'], net_type='E')
+    # Important: Also look for Projectors (netP) if we are doing Feature Distillation
     init_iter_P, init_path_P = option.find_last_checkpoint(opt['path']['models'], net_type='P')
+    
     opt['path']['pretrained_netG'] = init_path_G
     opt['path']['pretrained_netE'] = init_path_E
     opt['path']['pretrained_netP'] = init_path_P
+    
     init_iter_optimizerG, init_path_optimizerG = option.find_last_checkpoint(opt['path']['models'], net_type='optimizerG')
     opt['path']['pretrained_optimizerG'] = init_path_optimizerG
+    
     current_step = max(init_iter_G, init_iter_E, init_iter_optimizerG, init_iter_P)
 
+    # If we found a checkpoint, print it (Verification)
+    if current_step > 0 and opt['rank'] == 0:
+        print(f"Resuming training from iteration: {current_step}")
+
     border = opt['scale']
-    # --<--<--<--<--<--<--<--<--<--<--<--<--<-
 
     # ----------------------------------------
     # save opt to  a '../option.json' file
@@ -99,7 +103,8 @@ def main(json_path='options/train_msrresnet_psnr.json'):
     seed = opt['train']['manual_seed']
     if seed is None:
         seed = random.randint(1, 10000)
-    print('Random seed: {}'.format(seed))
+    if opt['rank'] == 0:
+        print('Random seed: {}'.format(seed))
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
@@ -111,10 +116,6 @@ def main(json_path='options/train_msrresnet_psnr.json'):
     # ----------------------------------------
     '''
 
-    # ----------------------------------------
-    # 1) create_dataset
-    # 2) creat_dataloader for train and test
-    # ----------------------------------------
     for phase, dataset_opt in opt['datasets'].items():
         if phase == 'train':
             train_set = define_Dataset(dataset_opt)
