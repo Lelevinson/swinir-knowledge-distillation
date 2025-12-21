@@ -1,164 +1,82 @@
-# SwinIR Knowledge Distillation Project
+# Accelerating Lightweight Image Restoration via Feature-Aware Knowledge Distillation
 
-This repository contains the code for a research project exploring knowledge distillation techniques to create a lightweight, efficient version of the SwinIR model for image restoration. The goal is to train a small "student" model that learns from a large, pre-trained "teacher" model, and to investigate novel feature-based distillation methods.
+**A Comparative Study on Compressing Swin Transformer Models for Classical Super-Resolution (x4)**
 
-## Original Project
+![Architecture Diagram](figs/figure_architecture.jpg)
 
-This work is built upon the official SwinIR and KAIR repositories. All credit for the original model architecture and training framework goes to the original authors.
+## Overview
 
-- **Original SwinIR Project:** [https://github.com/JingyunLiang/SwinIR](https://github.com/JingyunLiang/SwinIR)
-- **Original KAIR Training Framework:** [https://github.com/cszn/KAIR](https://github.com/cszn/KAIR)
+Transformer-based models, such as SwinIR, have achieved state-of-the-art performance in image restoration but suffer from high computational costs, limiting their deployment on edge devices. This project proposes a **Feature-Aware Knowledge Distillation** framework to compress the massive SwinIR model into a lightweight "Student" version without sacrificing structural fidelity.
 
----
+Unlike conventional distillation methods that only align the final output (Response-Based), our approach introduces learnable projectors to bridge the dimensionality gap between the Teacher ($C=180$) and Student ($C=60$). This enables the effective transfer of intermediate structural knowledge, forcing the student to learn the feature extraction process rather than solely mimicking the result.
 
-## 1. Local Setup Instructions
+### Key Contributions
 
-This project requires several external dependencies that are not tracked by Git. Follow these steps to set up a complete and correct local environment.
+- **Massive Compression:** Successfully reduced model parameters by **92.5%** (11.8M $\to$ 0.89M) and network depth by 33% (6 $\to$ 4 blocks).
+- **Feature-Aware Distillation:** Introduced a projection-based loss function that aligns internal feature spaces, significantly accelerating training convergence.
+- **Superior Performance:** Outperformed standard distillation methods by **+0.37 dB** on the Set5 benchmark.
 
-### Step 1: Clone the Repository
+## Methodology
 
-Clone this repository to your local machine:
+We investigated three training strategies to determine the most effective method for training lightweight Transformers:
 
-```bash
-git clone https://github.com/Lelevinson/SwinIR-Knowledge-Distillation.git
-cd SwinIR-Knowledge-Distillation
-```
+1.  **Model A (Baseline):** Trained using standard $L_1$ pixel loss.
+2.  **Model B (Response Distillation):** Trained using pixel loss + distillation loss on the final output.
+3.  **Model C (Feature-Aware Distillation - Ours):** Trained using pixel loss + feature loss on intermediate layers. To address the channel mismatch, we employ learnable linear projectors ($\phi$) at each Residual Swin Transformer Block (RSTB) stage.
 
-### Step 2: Create the Conda Environment
+## Experimental Results
 
-This project uses a specific Conda environment. The required packages are listed in `environment.yml`. Create and activate the environment with the following commands:
+### 1. Quantitative Comparison
 
-```bash
-# Create the environment from the file
-conda env create -f environment.yml
+We evaluated the models on the Set5 benchmark dataset for x4 Super-Resolution. The results demonstrate that standard response-based distillation provides negligible gains, while our feature-aware method yields a significant improvement.
 
-# Activate the environment
-conda activate swinir
-```
+| Model       | Method                 | Parameters | Final PSNR (dB) | Improvement  |
+| :---------- | :--------------------- | :--------- | :-------------- | :----------- |
+| **Model A** | Baseline ($L_1$)       | 0.89M      | 28.80           | -            |
+| **Model B** | Response KD            | 0.89M      | 28.82           | +0.02 dB     |
+| **Model C** | **Feature KD (Ours)**  | **0.89M**  | **29.17**       | **+0.37 dB** |
+| _Teacher_   | _SwinIR-M (Reference)_ | _11.8M_    | _32.40_         | _-_          |
 
-### Step 3: Download and Organize Datasets
+### 2. Training Dynamics & Stability
 
-The training datasets are not included in this repository and must be downloaded manually. All datasets should be placed inside a `trainsets/` folder in the main project directory.
+Our Feature-Aware method demonstrates superior long-term convergence. As shown in the **Performance** graph (left), the feature-based guidance allows the student to continue learning complex structural patterns, eventually overtaking the baseline.
 
-#### A) Super-Resolution Datasets
+The **Loss** graph (right) confirms that the training process remains mathematically stable. The "L-shaped" curve indicates that despite the added complexity of the projectors and feature alignment, the model converges smoothly without instability.
 
-Our primary experiments use the **DIV2K** dataset.
+|                Performance (PSNR)                |                Stability (Loss)                 |
+| :----------------------------------------------: | :---------------------------------------------: |
+| ![Convergence Plot](figs/figure_convergence.png) |     ![Loss Plot](figs/figure_real_loss.png)     |
+|    _Model C (Red) overtakes Baseline (Gray)._    | _Smooth convergence indicates stable training._ |
 
-1.  **Download:** [DIV2K Dataset](https://cv.snu.ac.kr/research/EDSR/DIV2K.tar).
-2.  **Place:** After extracting, ensure the high-resolution images are located at the following path, as our configuration files depend on it:
-    - `trainsets/DIV2K/DIV2K_train_HR/`
+### 3. Model Efficiency
 
-The **Flickr2K** dataset is also used by the original Teacher model.
+The primary goal of this research was to achieve high performance within a strict parameter budget. The chart below visualizes the massive scale difference between the Teacher and the Student.
 
-1.  **Download:** [Flickr2K Dataset](https://cv.snu.ac.kr/research/EDSR/Flickr2K.tar).
-2.  **Place:** After extracting, the images should be located in their own folder, for example:
-    - `trainsets/Flickr2K/Flickr2K_HR/`
+We successfully compressed the 11.8 Million parameter Teacher into a **0.89 Million parameter Student**, achieving a **92.5% reduction** in model size. This makes the Student model viable for deployment on mobile and edge devices where the original SwinIR would be too computationally expensive.
 
-#### B) Denoising & Other Datasets
+![Parameter Comparison](figs/figure_params.png)
 
-Future experiments will use the following datasets. Please download and extract them into their own subfolders within `trainsets/`.
+## Visual Quality Analysis
 
-- **BSD500:**
+Feature-Aware Distillation recovers high-frequency structural details that are often lost by the baseline model. In the example below (Butterfly from Set5), our method recovers the sharp boundaries of the wing patterns, achieving a local PSNR gain of **+1.01 dB** in the cropped region. The difference map (right) highlights the structural edges recovered by Model C that were distorted in Model A.
 
-  - **Download:** [BSD500 Dataset](http://www.eecs.berkeley.edu/Research/Projects/CS/vision/grouping/BSR/BSR_bsds500.tgz).
-  - **Suggested Path:** `trainsets/BSD500/images/`
+![Visual Evidence](figs/figure_final_evidence.png)
 
-- **WED (Waterloo Exploration Database):**
+## Installation and Usage
 
-  - **Download:** [WED Dataset](http://ivc.uwaterloo.ca/database/WaterlooExploration/exploration_database_and_code.rar).
-  - **Suggested Path:** `trainsets/WED/`
+For detailed instructions on setting up the environment, downloading datasets, and running training or testing scripts, please refer to the **[Installation Guide](setup.md)**.
 
-- **OST (Outdoor Scene Training):**
-  - **Download:** [OST Dataset](https://openmmlab.oss-cn-hangzhou.aliyuncs.com/datasets/OST_dataset.zip).
-  - **Suggested Path:** `trainsets/OST/`
+### Quick Start
 
-When we create the configuration files (`.json`) for these new tasks, we will simply update the `"dataroot_H"` path to point to these specific locations.
-
-### Step 4: Download Pre-trained Models
-
-The pre-trained models (the "brains") are not included in this repository due to their large size. We have prepared a separate guide with download scripts for all official SwinIR models.
-
-- Our distillation experiments require a specific **Teacher Model**. Please ensure you have downloaded at least this model: `001_classicalSR_DF2K_s64w8_SwinIR-M_x4.pth`.
-- For instructions on how to download this model and all others, please see the guide here: **[DOWNLOAD_MODELS.md](download_models.md)**.
-
----
-
-## 2. Project Structure
-
-This project is a self-contained training and testing environment. Here is a guide to the key files and folders:
-
-- **`main_train_student.py`**: The main script for running all training experiments (Models A, B, and C).
-- **`main_test_swinir.py`**: The original script for testing pre-trained models or models you have trained.
-- **`options/swinir/`**: Contains the JSON "curriculum" files that configure each experiment. This is where you control the model architecture, learning rates, and our custom distillation methods.
-- **`models/model_plain.py`**: The core "Professor" logic. Contains our custom code for calculating the standard, response-based, and feature-based distillation losses.
-- **`models/network_swinir.py`**: The blueprint for the original "Teacher" model.
-- **`models/network_swinir_student.py`**: Our dedicated, modifiable blueprint for the "Student" model, where our architectural changes are made.
-- **`research_log.md`**: Our official lab notebook. All experimental plans and results should be documented here.
-- **`DOWNLOAD_MODELS.md`**: A guide with PowerShell commands to download all official pre-trained SwinIR models.
-
----
-
-### Ignored Folders (Not on GitHub)
-
-The following folders are listed in the `.gitignore` file and will not be uploaded to the repository. They are either too large or specific to a local machine.
-
-- **`trainsets/`**: This is where you should place the large training datasets (e.g., DIV2K).
-- **`model_zoo/`**: This is where pre-trained "brains" (`.pth` files) for the teacher models are stored.
-- **`superresolution/`** & **`results/`**: These folders are automatically created by the training and testing scripts to store their output (logs, saved student model brains, and generated images).
-
----
-
-## 3. How to Run Experiments
-
-All experiments are controlled by the JSON files in `options/swinir/`. Use the following commands to run a short verification test (run to `iter: 200` and stop with `Ctrl + C`).
-
-To run a full training, let the script run until it reaches the desired number of iterations (e.g., 100,000) and then stop it.
-
-### Model A (Baseline "Lone Wolf")
+To test the pre-trained student model on the Set5 dataset:
 
 ```bash
-python main_train_student.py --opt options/swinir/train_swinir_student.json
+python main_test_student.py \
+  --model_path superresolution/student_C_500k_marathon/models/165000_E.pth \
+  --folder_gt testsets/Set5/HR \
+  --folder_lq testsets/Set5/LR_bicubic/X4
 ```
 
-### Model B (Response-Based Distillation "Apprentice")
+## Acknowledgements
 
-```bash
-python main_train_student.py --opt options/swir/train_swinir_student_distill_response.json
-```
-
-### Model C (Feature-Based Distillation "Mind Reader")
-
-```bash
-python main_train_student.py --opt options/swinir/train_swinir_student_distill_feature.json
-```
-
----
-
-## 4. Contribution Workflow (Git)
-
-To collaborate effectively, please follow this standard Git workflow. This ensures our work stays in sync and we avoid conflicts.
-
-1.  **Update:** Before starting any new work, always get the latest changes from the team. This downloads any new commits from GitHub.
-
-    ```bash
-    git pull
-    ```
-
-2.  **Work:** Make your code changes, run your experiments, update the research log, etc.
-
-3.  **Save:** When you have completed a meaningful task, save a snapshot of your work locally. This is a two-step process.
-
-    ```bash
-    # Step 1: Stage your changed files
-    git add .
-
-    # Step 2: Commit them with a clear, descriptive message
-    git commit -m "Your clear and descriptive message here"
-    ```
-
-4.  **Share:** Upload your saved work to GitHub for the rest of the team to see.
-    ```bash
-    git push
-    ```
-
-If you are working on a major new feature or a risky experiment, it is good practice to create a new branch to work on, rather than committing directly to `main`.
+This work is built upon the official [SwinIR](https://github.com/JingyunLiang/SwinIR) and [KAIR](https://github.com/cszn/KAIR) repositories. We thank the original authors for their open-source contributions to the image restoration community.
