@@ -58,9 +58,12 @@ We successfully compressed the 11.8 Million parameter Teacher into a **0.89 Mill
 
 ## Visual Quality Analysis
 
-Feature-Aware Distillation recovers high-frequency structural details that are often lost by the baseline model. In the example below (Butterfly from Set5), our method recovers the sharp boundaries of the wing patterns, achieving a local PSNR gain of **+1.01 dB** in the cropped region. The difference map (right) highlights the structural edges recovered by Model C that were distorted in Model A.
+Feature-Aware Distillation recovers high-frequency structural details often lost by the baseline. To demonstrate this, we performed a **Differential Error Analysis** on the 'Butterfly' image from Set5.
 
-![Visual Evidence](figs/figure_final_evidence.png)
+- **Top Row:** Visual comparison showing Model C recovers sharper texture details.
+- **Bottom Row (Error Maps):** The **Improvement Map (Bottom Left)** highlights exactly where Model C outperformed the Baseline. The **Red and Yellow** pixels represent areas where our method significantly reduced the error compared to the baseline. These improvements are concentrated along the structural edges of the wing, confirming that our method effectively repairs high-frequency artifacts.
+
+![Visual Evidence](figs/sprint_evidence_butterfly.png)
 
 ## Installation and Usage
 
