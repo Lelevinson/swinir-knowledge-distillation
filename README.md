@@ -71,13 +71,22 @@ For detailed instructions on setting up the environment, downloading datasets, a
 
 ### Quick Start
 
-To test the pre-trained student model on the Set5 dataset:
+To see the results immediately, you can test our pre-trained models on the Set5 dataset.
+
+**1. Test Model C (Our Best Model)**
 
 ```bash
 python main_test_student.py \
-  --model_path superresolution/student_C_500k_marathon/models/165000_E.pth \
+  --model_path student_weights/student_C_feature_20k.pth \
   --folder_gt testsets/Set5/HR \
   --folder_lq testsets/Set5/LR_bicubic/X4
+```
+
+**2. Generate Visual Comparison (Model A vs Model C)**
+We provide a demo script that loads both models, runs inference on the 'butterfly' image, and generates the error analysis maps.
+
+```bash
+python run_demo.py
 ```
 
 ## Acknowledgements
