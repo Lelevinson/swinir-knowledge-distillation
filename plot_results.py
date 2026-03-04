@@ -24,7 +24,8 @@ psnr_c = [27.00, 27.65, 28.09, 28.43, 28.58, 28.79, 28.94, 29.05, 29.13, 29.17]
 # 2. Efficiency Data
 model_names = ['Bicubic', 'Student (Ours)', 'Teacher (SwinIR)']
 params = [0, 0.89, 11.8] # Millions
-psnr_scores = [28.42, 29.17, 32.40]
+# UPDATED: Student PSNR changed from 29.17 to 30.51 to match final results
+psnr_scores = [28.42, 30.51, 32.40] 
 
 # ==========================================
 # PLOT 1: PARAMETER COMPARISON (For Section 3.1)
@@ -84,7 +85,8 @@ plt.ylabel('PSNR (dB) on Set5', fontsize=12)
 plt.legend(loc='lower right', fontsize=11)
 plt.grid(True, linestyle='--', alpha=0.5)
 
-plt.annotate('92% Smaller!', xy=(0.9, 29.17), xytext=(5, 30.5),
+# UPDATED: Arrow target (xy) and text location (xytext) shifted up to match the 30.51 dB position
+plt.annotate('92% Smaller!', xy=(0.89, 30.51), xytext=(4, 31.2),
              arrowprops=dict(facecolor='black', shrink=0.05))
 
 plt.tight_layout()

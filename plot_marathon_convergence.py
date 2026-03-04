@@ -3,11 +3,15 @@ import re
 import os
 
 # --- CONFIGURATION ---
-# Path to Model C Log (500k Marathon)
+# Path to Model C Log
 path_c = r'superresolution/student_C_500k_marathon/train.log'
 
-# Path to Model A Log (500k Marathon) - LEAVE EMPTY FOR NOW
-path_a = r'' 
+# Path to Model A Log
+path_a = r'superresolution/student_A_500k_marathon/train.log' 
+
+# CUTOFF LIMIT (The Finish Line)
+# We limit the graph to 550k so Model A's 3M run doesn't ruin the scale
+MAX_ITER = 550000 
 
 # Output Folder
 os.makedirs('figs', exist_ok=True)
@@ -23,10 +27,9 @@ def parse_psnr_log(file_path):
     print(f"Parsing {file_path}...")
     with open(file_path, 'r') as f:
         for line in f:
-            # Look for lines like: <epoch:..., iter: 165,000, Average PSNR : 30.33dB
             if 'Average PSNR' in line:
                 try:
-                    # Extract Iteration (Remove commas)
+                    # Extract Iteration
                     iter_match = re.search(r'iter:\s*([\d,]+)', line)
                     if iter_match:
                         current_iter = int(iter_match.group(1).replace(',', ''))
@@ -36,11 +39,13 @@ def parse_psnr_log(file_path):
                     if psnr_match:
                         current_psnr = float(psnr_match.group(1))
                         
-                    # Append
+                    # DATA FILTERING: Stop if we go past the limit
+                    if current_iter > MAX_ITER:
+                        break # Stop reading this file
+                        
                     iters.append(current_iter)
                     psnrs.append(current_psnr)
                 except Exception as e:
-                    print(f"Skipping line due to error: {line.strip()}")
                     continue
     return iters, psnrs
 
@@ -51,18 +56,23 @@ iters_a, psnrs_a = parse_psnr_log(path_a)
 # --- 2. PLOT ---
 plt.figure(figsize=(10, 6))
 
-# Plot Model C (Red)
-if len(iters_c) > 0:
-    plt.plot(iters_c, psnrs_c, color='red', linewidth=2, label='Model C (Feature KD)')
-    # Annotate the final point
-    plt.plot(iters_c[-1], psnrs_c[-1], 'r*', markersize=10)
-    plt.text(iters_c[-1], psnrs_c[-1] + 0.05, f"{psnrs_c[-1]:.2f} dB", ha='right', color='red', fontweight='bold')
-
-# Plot Model A (Gray) - Will run later when you have the file
+# Plot Model A (Gray) - Baseline
 if len(iters_a) > 0:
     plt.plot(iters_a, psnrs_a, color='gray', linestyle='--', linewidth=2, label='Model A (Baseline)')
-    plt.plot(iters_a[-1], psnrs_a[-1], 'o', color='gray')
-    plt.text(iters_a[-1], psnrs_a[-1] - 0.1, f"{psnrs_a[-1]:.2f} dB", ha='right', color='gray')
+    # Label the last point
+    last_iter_a = iters_a[-1]
+    last_psnr_a = psnrs_a[-1]
+    plt.plot(last_iter_a, last_psnr_a, 'o', color='gray')
+    plt.text(last_iter_a, last_psnr_a - 0.15, f"{last_psnr_a:.2f} dB", ha='right', color='gray')
+
+# Plot Model C (Red) - Ours
+if len(iters_c) > 0:
+    plt.plot(iters_c, psnrs_c, color='red', linewidth=2, label='Model C (Feature KD)')
+    # Label the last point
+    last_iter_c = iters_c[-1]
+    last_psnr_c = psnrs_c[-1]
+    plt.plot(last_iter_c, last_psnr_c, 'r*', markersize=12)
+    plt.text(last_iter_c, last_psnr_c + 0.05, f"{last_psnr_c:.2f} dB", ha='right', color='red', fontweight='bold')
 
 # Formatting
 plt.title('Marathon Training Convergence (Set5 x4)', fontsize=14)

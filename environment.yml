@@ -79,7 +79,7 @@ dependencies:
   - pillow=10.4.0=py38h827c3e9_0
   - pip=24.2=py38haa95532_0
   - pysocks=1.7.1=py38haa95532_0
-  - python=3.8.20=h8205438_0
+  - python=3.8
   - pytorch=2.4.1=py3.8_cuda12.1_cudnn9_0
   - pytorch-cuda=12.1=hde6ce7c_6
   - pytorch-mutex=1.0=cuda
@@ -130,7 +130,7 @@ dependencies:
       - tifffile==2023.7.10
       - timm==1.0.22
       - torchaudio==2.4.1
-      - torchvision==0.20.0
+      - torchvision
       - tqdm==4.67.1
       - zipp==3.20.2
 prefix: C:\Users\user\miniconda3\envs\swinir
