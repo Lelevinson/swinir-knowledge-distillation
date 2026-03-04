@@ -14,5 +14,12 @@ model_zoo/
 superresolution/
 results/
 
+# Model weights (large binary files)
+*.pth
+
+# Local PDF documents
+paper_*.pdf
+training_flow.pdf
+
 # Any other local configuration files
 *.local

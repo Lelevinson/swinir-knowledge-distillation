@@ -2,6 +2,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 
+# Resolve paths relative to project root
+ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+os.chdir(ROOT_DIR)
+
 # Ensure the folder exists
 os.makedirs('figs', exist_ok=True)
 

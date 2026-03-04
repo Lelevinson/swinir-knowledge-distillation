@@ -1,7 +1,14 @@
+import sys
+import os
+
+# Resolve paths relative to project root and add to Python path for model imports
+ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+os.chdir(ROOT_DIR)
+sys.path.insert(0, ROOT_DIR)
+
 import cv2
 import numpy as np
 import torch
-import os
 import matplotlib.pyplot as plt
 from models.network_swinir_student import SwinIR_Student
 
@@ -66,7 +73,7 @@ os.makedirs('figs', exist_ok=True)
 
 # 1. Prepare Data
 if not os.path.exists(path_gt) or not os.path.exists(path_lq):
-    print("Error: Test images not found. Please download datasets first (see setup.md).")
+    print("Error: Test images not found. Please download datasets first (see docs/setup.md).")
     exit()
 
 img_lq = cv2.imread(path_lq, cv2.IMREAD_COLOR).astype(np.float32) / 255.

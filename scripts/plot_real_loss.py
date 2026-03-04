@@ -3,6 +3,10 @@ import numpy as np
 import re
 import os
 
+# Resolve paths relative to project root
+ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+os.chdir(ROOT_DIR)
+
 # --- CONFIGURATION ---
 # Path to your Sprint Log (Model C v1)
 # Adjust this if your folder name is slightly different

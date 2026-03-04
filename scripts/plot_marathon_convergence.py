@@ -2,6 +2,10 @@ import matplotlib.pyplot as plt
 import re
 import os
 
+# Resolve paths relative to project root
+ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+os.chdir(ROOT_DIR)
+
 # --- CONFIGURATION ---
 # Path to Model C Log
 path_c = r'superresolution/student_C_500k_marathon/train.log'

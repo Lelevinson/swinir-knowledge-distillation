@@ -1,7 +1,14 @@
+import sys
+import os
+
+# Resolve paths relative to project root and add to Python path for model imports
+ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+os.chdir(ROOT_DIR)
+sys.path.insert(0, ROOT_DIR)
+
 import torch
 import time
 import numpy as np
-import os
 
 # Import Architectures
 from models.network_swinir import SwinIR as TeacherNet
