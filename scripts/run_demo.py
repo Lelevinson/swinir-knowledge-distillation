@@ -16,8 +16,8 @@ from models.network_swinir_student import SwinIR_Student
 # CONFIGURATION
 # ==========================================
 # Paths to the uploaded weights
-path_model_a = r'student_weights/student_A_baseline_20k.pth'
-path_model_c = r'student_weights/student_C_feature_20k.pth'
+path_model_a = r'student_weights/model_A_500k.pth'
+path_model_c = r'student_weights/model_C_500k.pth'
 
 # Test Image
 path_gt = r'testsets/Set5/HR/butterfly.png'
