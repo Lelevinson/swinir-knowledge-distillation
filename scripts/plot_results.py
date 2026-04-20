@@ -1,98 +1,136 @@
+"""Regenerate current paper-facing result figures.
+
+The values here are the locally verified Set5 x4 and latency numbers documented
+in docs/reproducibility_set5.md. This script does not run inference or retrain;
+it only redraws summary figures from verified metrics.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+
 import matplotlib.pyplot as plt
-import numpy as np
-import os
 
-# Resolve paths relative to project root
-ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-os.chdir(ROOT_DIR)
+ROOT = Path(__file__).resolve().parents[1]
+FIG_DIR = ROOT / "figs"
+FIG_DIR.mkdir(exist_ok=True)
 
-# Ensure the folder exists
-os.makedirs('figs', exist_ok=True)
+STUDENT_PARAMS_M = 988_959 / 1_000_000
+TEACHER_PARAMS_M = 11_900_199 / 1_000_000
+PARAM_REDUCTION = (1.0 - STUDENT_PARAMS_M / TEACHER_PARAMS_M) * 100.0
 
-# ==========================================
-# DATA CONFIGURATION
-# ==========================================
+PSNR_RGB = {
+    "Baseline Student": 30.4532,
+    "FAKD Student": 30.5133,
+    "SwinIR-M Teacher": 30.9883,
+}
 
-# 1. The Training Log Data (Iter 2k to 20k)
-iterations = [2000, 4000, 6000, 8000, 10000, 12000, 14000, 16000, 18000, 20000]
+LATENCY_MS = {
+    "SwinIR-M Teacher": 40.13,
+    "FAKD Student": 19.70,
+    "Baseline Student": 20.28,
+}
 
-# Model A (Baseline) - Corrected first value
-psnr_a = [26.97, 27.55, 27.91, 28.09, 28.37, 28.51, 28.58, 28.70, 28.78, 28.80]
 
-# Model B (Response Distillation)
-psnr_b = [27.20, 27.64, 27.94, 28.21, 28.40, 28.58, 28.64, 28.75, 28.80, 28.82]
+def save_params_figure() -> None:
+    labels = ["Student", "Teacher"]
+    values = [STUDENT_PARAMS_M, TEACHER_PARAMS_M]
+    colors = ["#4C9F70", "#7A7F87"]
 
-# Model C (Feature Distillation)
-psnr_c = [27.00, 27.65, 28.09, 28.43, 28.58, 28.79, 28.94, 29.05, 29.13, 29.17]
+    fig, ax = plt.subplots(figsize=(6.5, 4.5))
+    bars = ax.bar(labels, values, color=colors, edgecolor="#222222", linewidth=0.8)
+    for bar, value in zip(bars, values):
+        ax.text(
+            bar.get_x() + bar.get_width() / 2,
+            value,
+            f"{value:.3f}M",
+            ha="center",
+            va="bottom",
+            fontsize=11,
+            fontweight="bold",
+        )
 
-# 2. Efficiency Data
-model_names = ['Bicubic', 'Student (Ours)', 'Teacher (SwinIR)']
-params = [0, 0.89, 11.8] # Millions
-# UPDATED: Student PSNR changed from 29.17 to 30.51 to match final results
-psnr_scores = [28.42, 30.51, 32.40] 
+    ax.set_title("Model Size Comparison")
+    ax.set_ylabel("Parameters (Millions)")
+    ax.text(
+        0.5,
+        max(values) * 0.62,
+        f"Student is {PARAM_REDUCTION:.1f}% smaller",
+        ha="center",
+        fontsize=11,
+        bbox={"boxstyle": "round,pad=0.25", "facecolor": "white", "edgecolor": "#999999"},
+    )
+    ax.grid(axis="y", linestyle="--", alpha=0.35)
+    ax.set_axisbelow(True)
+    fig.tight_layout()
+    fig.savefig(FIG_DIR / "figure_params.png", dpi=300)
+    plt.close(fig)
 
-# ==========================================
-# PLOT 1: PARAMETER COMPARISON (For Section 3.1)
-# ==========================================
-plt.figure(figsize=(7, 5))
-# Only compare Student vs Teacher for this one
-bar_labels = ['Student', 'Teacher']
-bar_values = [0.89, 11.8]
-colors = ['#90EE90', '#D3D3D3'] # Light Green and Light Gray
 
-bars = plt.bar(bar_labels, bar_values, color=colors, edgecolor='black')
+def save_efficiency_figure() -> None:
+    points = [
+        ("Baseline Student", STUDENT_PARAMS_M, PSNR_RGB["Baseline Student"], "#7A7F87"),
+        ("FAKD Student", STUDENT_PARAMS_M, PSNR_RGB["FAKD Student"], "#4C9F70"),
+        ("SwinIR-M Teacher", TEACHER_PARAMS_M, PSNR_RGB["SwinIR-M Teacher"], "#2F6B9A"),
+    ]
 
-# Add text on top of bars
-for bar in bars:
-    height = bar.get_height()
-    plt.text(bar.get_x() + bar.get_width()/2., height,
-             f'{height} M', ha='center', va='bottom', fontsize=12, fontweight='bold')
+    fig, ax = plt.subplots(figsize=(7.2, 5.2))
+    for label, params, psnr, color in points:
+        ax.scatter(params, psnr, s=130, color=color, edgecolors="#222222", linewidth=0.8, label=label)
+        y_offset = 0.045 if label != "Baseline Student" else -0.075
+        ax.text(params, psnr + y_offset, f"{psnr:.2f} dB", ha="center", fontsize=10)
 
-plt.title('Model Size Comparison', fontsize=14)
-plt.ylabel('Parameters (Millions)', fontsize=12)
-plt.grid(axis='y', linestyle='--', alpha=0.5)
-plt.tight_layout()
-plt.savefig('figs/figure_params.png', dpi=300)
-print("Saved figure_params.png (For Methodology)")
+    ax.annotate(
+        "+0.06 dB same-backbone gain",
+        xy=(STUDENT_PARAMS_M, PSNR_RGB["FAKD Student"]),
+        xytext=(2.3, 30.72),
+        arrowprops={"arrowstyle": "->", "color": "#222222", "lw": 1.1},
+        fontsize=10,
+    )
+    ax.set_title("Set5 x4 Performance vs Model Size")
+    ax.set_xlabel("Parameters (Millions)")
+    ax.set_ylabel("RGB PSNR (dB)")
+    ax.legend(loc="lower right")
+    ax.grid(True, linestyle="--", alpha=0.35)
+    ax.set_axisbelow(True)
+    fig.tight_layout()
+    fig.savefig(FIG_DIR / "figure_efficiency.png", dpi=300)
+    plt.close(fig)
 
-# ==========================================
-# PLOT 2: THE RACE (Convergence Analysis)
-# ==========================================
-plt.figure(figsize=(10, 6))
-plt.plot(iterations, psnr_a, marker='o', linestyle=(0, (5, 10)), color='gray', label='Model A (Baseline)')
-plt.plot(iterations, psnr_b, marker='^', linestyle=(0, (5, 5)), color='blue', label='Model B (Response KD)')
-plt.plot(iterations, psnr_c, marker='*', linestyle='-', color='red', linewidth=2, label='Model C (Feature KD)')
 
-plt.title('Training Convergence (Set5 x4)', fontsize=14)
-plt.xlabel('Iterations', fontsize=12)
-plt.ylabel('PSNR (dB)', fontsize=12)
-plt.legend(fontsize=12)
-plt.grid(True, alpha=0.3)
-plt.tight_layout()
-plt.savefig('figs/figure_convergence.png', dpi=300)
-print("Saved figure_convergence.png (For Results)")
+def save_latency_figure() -> None:
+    labels = list(LATENCY_MS.keys())
+    values = list(LATENCY_MS.values())
+    colors = ["#2F6B9A", "#4C9F70", "#7A7F87"]
 
-# ==========================================
-# PLOT 3: THE GOLDEN CHART (Efficiency)
-# ==========================================
-plt.figure(figsize=(8, 6))
+    fig, ax = plt.subplots(figsize=(7.0, 4.6))
+    bars = ax.bar(labels, values, color=colors, edgecolor="#222222", linewidth=0.8)
+    for bar, value in zip(bars, values):
+        ax.text(bar.get_x() + bar.get_width() / 2, value, f"{value:.2f} ms", ha="center", va="bottom", fontsize=10)
 
-colors_scatter = ['gray', 'red', 'blue']
-for i in range(len(model_names)):
-    plt.scatter(params[i], psnr_scores[i], s=150, color=colors_scatter[i], label=model_names[i], edgecolors='black')
-    offset = 0.5 if i == 1 else -0.5
-    plt.text(params[i], psnr_scores[i] + 0.1, f"{psnr_scores[i]} dB", ha='center', fontsize=10)
+    ax.set_title("Latency on 64x64 LR Input")
+    ax.set_ylabel("Mean latency (ms)")
+    ax.text(
+        0.5,
+        max(values) * 0.78,
+        "FAKD student: 2.04x faster than teacher",
+        ha="center",
+        fontsize=10,
+        bbox={"boxstyle": "round,pad=0.25", "facecolor": "white", "edgecolor": "#999999"},
+    )
+    ax.grid(axis="y", linestyle="--", alpha=0.35)
+    ax.set_axisbelow(True)
+    fig.tight_layout()
+    fig.savefig(FIG_DIR / "figure_latency.png", dpi=300)
+    plt.close(fig)
 
-plt.title('Performance vs. Model Size', fontsize=14)
-plt.xlabel('Parameters (Millions)', fontsize=12)
-plt.ylabel('PSNR (dB) on Set5', fontsize=12)
-plt.legend(loc='lower right', fontsize=11)
-plt.grid(True, linestyle='--', alpha=0.5)
 
-# UPDATED: Arrow target (xy) and text location (xytext) shifted up to match the 30.51 dB position
-plt.annotate('92% Smaller!', xy=(0.89, 30.51), xytext=(4, 31.2),
-             arrowprops=dict(facecolor='black', shrink=0.05))
+def main() -> None:
+    save_params_figure()
+    save_efficiency_figure()
+    save_latency_figure()
+    print(f"Saved figures to {FIG_DIR}")
 
-plt.tight_layout()
-plt.savefig('figs/figure_efficiency.png', dpi=300)
-print("Saved figure_efficiency.png (For Results)")
+
+if __name__ == "__main__":
+    main()

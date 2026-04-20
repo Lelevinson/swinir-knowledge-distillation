@@ -18,7 +18,8 @@ def main():
     parser.add_argument('--scale', type=int, default=4, help='scale factor: 1, 2, 3, 4, 8')
     parser.add_argument('--noise', type=int, default=15, help='noise level: 15, 25, 50')
     parser.add_argument('--jpeg', type=int, default=40, help='scale factor: 10, 20, 30, 40')
-    parser.add_argument('--training_patch_size', type=int, default=128, help='patch size used in training SwinIR.')
+    parser.add_argument('--training_patch_size', type=int, default=64,
+                        help='patch size used in training SwinIR. Use 64 for the local SwinIR-M x4 teacher checkpoint.')
     parser.add_argument('--large_model', action='store_true', help='use large model, only provided for real image sr')
     
     # REQUIRED: Path to the Teacher Model (e.g., model_zoo/swinir/001_classicalSR...pth)

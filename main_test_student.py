@@ -151,12 +151,12 @@ def define_model(args):
 
 
 def setup(args):
-    # Get the model filename (e.g., "165000_E") without the folder path or .pth extension
+    # Get the model filename without the folder path or .pth extension.
     model_name = os.path.splitext(os.path.basename(args.model_path))[0]
 
     # Define where the results get saved
     if args.task in ['classical_sr', 'lightweight_sr']:
-        # NOW: results/swinir_classical_sr_x4_165000_E
+        # Example: results/swinir_classical_sr_x4_model_C_500k
         save_dir = f'results/swinir_{args.task}_x{args.scale}_{model_name}'
         folder = args.folder_gt
         border = args.scale
