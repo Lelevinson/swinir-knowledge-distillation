@@ -1,93 +1,93 @@
 # Project Command Reference
 
-This document contains a complete list of the useful commands for running experiments, testing models, and managing the project environment.
+Run commands from the repository root.
 
----
+## Environment
 
-## 1. Environment Management
+Windows/Conda environment used for verified local runs:
 
-These commands are for setting up and inspecting the Conda environment.
-
-### Create the Environment
-
-Used by a new team member to build the project environment for the first time.
-
-```bash
-conda env create -f environment.yml
-```
-
-### Activate the Environment
-
-Run this in the terminal every time you start a new work session.
-
-```bash
+```powershell
 conda activate swinir
 ```
 
-### Inspect Installed Packages
+Most verified commands below use the explicit interpreter path:
 
-Use this to see a complete list of all packages installed in the current environment.
-
-```bash
-conda list
+```powershell
+D:\Conda_Envs\swinir\python.exe
 ```
 
----
+## Reproduce Verified Set5 Metrics
 
-## 2. Training Experiments
-
-These commands are used to launch the training runs for our three experimental models.
-
-The current training budget is set to **20,000 iterations**. Each run will save a model checkpoint (`.pth` file) and run a test every **2,000 iterations**. The training will automatically resume from the latest checkpoint if stopped and restarted.
-
-### Model A: Baseline Training ("Lone Wolf")
-
-Trains the student model using only the standard L1 loss.
-
-```bash
-python main_train_student.py --opt options/swinir/train_swinir_student.json
+```powershell
+D:\Conda_Envs\swinir\python.exe scripts\reproduce_set5_metrics.py students-rgb
+D:\Conda_Envs\swinir\python.exe scripts\reproduce_set5_metrics.py saved-results
+D:\Conda_Envs\swinir\python.exe scripts\reproduce_set5_metrics.py teacher
+D:\Conda_Envs\swinir\python.exe scripts\reproduce_set5_metrics.py params
 ```
 
-### Model B: Response-Based Distillation ("Apprentice")
+Expected headline result:
 
-Trains the student using L1 loss and guidance from the Teacher's final output.
+- Baseline Student: 30.4532 RGB PSNR
+- FAKD Student: 30.5133 RGB PSNR
+- Gain: +0.0601 dB
 
-```bash
-python main_train_student.py --opt options/swinir/train_swinir_student_distill_response.json
+## Benchmark Final Checkpoints
+
+```powershell
+D:\Conda_Envs\swinir\python.exe scripts\benchmark_final_checkpoints.py
 ```
 
-### Model C: Feature-Based Distillation ("Mind Reader")
+Expected local RTX 4060 Laptop GPU headline result:
 
-Trains the student using L1 loss, response distillation, and our novel feature-based loss.
+- Teacher: 40.13 ms
+- FAKD student: 19.70 ms
+- Speedup: 2.04x
+- Latency reduction: 50.91%
 
-```bash
-python main_train_student.py --opt options/swinir/train_swinir_student_distill_feature.json
+## Regenerate Current Figures
+
+```powershell
+D:\Conda_Envs\swinir\python.exe scripts\plot_results.py
+D:\Conda_Envs\swinir\python.exe scripts\plot_marathon_convergence.py
+D:\Conda_Envs\swinir\python.exe scripts\plot_visuals.py
 ```
 
----
+These update the current paper-facing figures in `figs/`. The visual comparison
+script loads the final student checkpoints directly and does not require
+pre-existing `results/` folders.
 
-## 3. Testing Trained Models
+## Original Save-Image Evaluation
 
-These commands are used to evaluate the performance of a trained student "brain" (`.pth` file) on a test dataset.
+These scripts write result images into `results/`. Use the no-save helpers above
+when metrics only are needed.
 
-The main script for this is our custom `main_test_student.py`, which is designed to work with our lightweight student architecture.
+Baseline student:
 
-### How to Use
-
-To run a test, you must replace the placeholder in the `--model_path` argument with the actual path to the `.pth` file you want to evaluate.
-
-**Example Command Structure:**
-
-```bash
-python main_test_student.py --task classical_sr --scale 4 --model_path [PATH_TO_YOUR_MODEL_BRAIN] --folder_lq testsets/Set5/LR_bicubic/X4 --folder_gt testsets/Set5/HR
+```powershell
+D:\Conda_Envs\swinir\python.exe main_test_student.py --task classical_sr --scale 4 --model_path student_weights\model_A_500k.pth --folder_lq testsets\Set5\LR_bicubic\X4 --folder_gt testsets\Set5\HR
 ```
 
-### Example for a Trained Model C
+FAKD student:
 
-This example shows how to test the `20000_G.pth` brain from our Model C experiment.
-
-```bash
-python main_test_student.py --task classical_sr --scale 4 --model_path superresolution/student_C_distill_feature_x4/models/20000_G.pth --folder_lq testsets/Set5/LR_bicubic/X4 --folder_gt testsets/Set5/HR
+```powershell
+D:\Conda_Envs\swinir\python.exe main_test_student.py --task classical_sr --scale 4 --model_path student_weights\model_C_500k.pth --folder_lq testsets\Set5\LR_bicubic\X4 --folder_gt testsets\Set5\HR
 ```
 
-You can adapt this command to test any brain from any of our experiments (Model A, B, or C) by simply changing the model path.
+Teacher:
+
+```powershell
+D:\Conda_Envs\swinir\python.exe main_test_swinir.py --task classical_sr --scale 4 --training_patch_size 64 --model_path model_zoo\swinir\001_classicalSR_DF2K_s64w8_SwinIR-M_x4.pth --folder_lq testsets\Set5\LR_bicubic\X4 --folder_gt testsets\Set5\HR
+```
+
+## Training Commands
+
+Do not retrain unless intentionally starting a new experiment. Final configs are
+kept for reproducibility:
+
+```powershell
+D:\Conda_Envs\swinir\python.exe main_train_student.py --opt options\swinir\train_swinir_student_500k_A.json
+D:\Conda_Envs\swinir\python.exe main_train_student.py --opt options\swinir\train_swinir_student_500k.json
+```
+
+The first command is the final L1-only baseline config. The second is the final
+FAKD config.

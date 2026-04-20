@@ -1,97 +1,122 @@
-# Accelerating Lightweight Image Restoration via Feature-Aware Knowledge Distillation
+# Feature-Aware Knowledge Distillation for Lightweight SwinIR SISR
 
-**A Comparative Study on Compressing Swin Transformer Models for Classical Super-Resolution (x4)**
+This repository contains a Big Data course project on lightweight
+SwinIR-style single-image super-resolution at x4 scale. The project studies
+Feature-Aware Knowledge Distillation (FAKD): a compact student is trained with
+pixel loss plus intermediate feature supervision from a larger SwinIR-M teacher.
+
+The supported result is intentionally controlled: FAKD improves a
+same-capacity student over a pixel-loss-only baseline on Set5 x4 while keeping
+the inference-time student architecture unchanged. This repository does not
+claim broad state-of-the-art performance.
 
 ![Architecture Diagram](figs/figure_architecture.jpg)
 
-## Overview
+## Verified Result Summary
 
-Transformer-based models, such as SwinIR, have achieved state-of-the-art performance in image restoration but suffer from high computational costs, limiting their deployment on edge devices. This project proposes a **Feature-Aware Knowledge Distillation** framework to compress the massive SwinIR model into a lightweight "Student" version without sacrificing structural fidelity.
+The checked local result uses Set5 x4:
 
-Unlike conventional distillation methods that only align the final output, our approach aligns the intermediate feature spaces of the student and teacher using learnable projectors. This enables the effective transfer of intermediate structural knowledge, forcing the student to learn the feature extraction process rather than solely mimicking the result.
+- HR images: `testsets/Set5/HR`
+- LR images: `testsets/Set5/LR_bicubic/X4`
+- Baseline checkpoint: `student_weights/model_A_500k.pth`
+- FAKD checkpoint: `student_weights/model_C_500k.pth`
+- Teacher checkpoint: `model_zoo/swinir/001_classicalSR_DF2K_s64w8_SwinIR-M_x4.pth`
 
-### Key Contributions
+| Model | Parameters | RGB PSNR | Y PSNR | Notes |
+| --- | ---: | ---: | ---: | --- |
+| Baseline Student | 0.989M | 30.4532 | 32.3705 | L1-only student |
+| FAKD Student | 0.989M | 30.5133 | 32.4083 | Same architecture, feature-aware KD |
+| SwinIR-M Teacher | 11.900M | 30.9883 | 32.9158 | Reference teacher |
 
-- **Massive Compression:** Successfully reduced model parameters by **92%** (11.8M to 0.89M). Network depth was also reduced from 6 to 4 Residual Swin Transformer Blocks.
-- **Real-Time Efficiency:** The lightweight student model achieves a **2.14x speedup** and a **53.37% reduction in latency** (17.55 ms per forward pass compared to the teacher's 37.63 ms).
-- **Superior Performance:** The Feature-Aware student achieved a PSNR of **30.51 dB** after 500,000 iterations, outperforming the baseline on the Set5 benchmark.
+The paper-facing rounded claim is:
 
----
+```text
+Baseline Student: 30.45 dB
+FAKD Student:     30.51 dB
+Gain:             +0.06 dB
+```
 
-## Methodology
+The 30.45/30.51 values are RGB validation-style PSNR. The saved-output
+Y-channel gain is smaller but still positive: +0.0378 dB.
 
-We investigated two training strategies to determine the most effective method for training lightweight Transformers:
+## Efficiency
 
-1.  **Model A (Baseline):** Trained using standard L1 pixel loss.
-2.  **Model C (Feature-Aware Distillation - Ours):** Trained using pixel loss + feature loss on intermediate layers. To address the channel dimensionality mismatch between the teacher (C=180) and student (C=60), we employ learnable linear projectors at each RSTB stage.
+The final checkpoint latency helper benchmarks a synthetic `1x3x64x64` LR input
+patch on the same device with CUDA synchronization when CUDA is available.
 
----
+| Model | Parameters | Mean latency |
+| --- | ---: | ---: |
+| SwinIR-M Teacher | 11.900M | 40.13 ms |
+| FAKD Student | 0.989M | 19.70 ms |
+| Baseline Student | 0.989M | 20.28 ms |
 
-## Experimental Results
+On the local NVIDIA GeForce RTX 4060 Laptop GPU, the FAKD student is 2.04x
+faster than the teacher with a 50.91% latency reduction. Latency is
+hardware-dependent; cite the device and benchmark protocol with the numbers.
 
-### 1. Quantitative Comparison
+![Model Size](figs/figure_params.png)
 
-We evaluated the models on the Set5 benchmark dataset for x4 Super-Resolution after a full 500,000 iterations.
+![Latency](figs/figure_latency.png)
 
-| Model       | Method                 | Parameters | Final PSNR (dB) | Improvement  |
-| :---------- | :--------------------- | :--------- | :-------------- | :----------- |
-| **Model A** | Baseline (L1)          | 0.89M      | 30.45           | -            |
-| **Model C** | **Feature KD (Ours)**  | **0.89M**  | **30.51**       | **+0.06 dB** |
-| _Teacher_   | _SwinIR-M (Reference)_ | _11.8M_    | _32.40_         | _Reference_  |
+## Training Dynamics
 
-### 2. Training Dynamics & Stability
+The final 500k training logs show the controlled same-backbone comparison
+between the baseline student and FAKD student.
 
-Our Feature-Aware method demonstrates superior learning efficiency over a long training cycle. The model maintains a consistent lead throughout the 500,000-iteration marathon. The crucial crossover occurs early in training (approx. 100k iterations), after which Model C sustains its advantage, validating the stability of the distillation strategy.
+![500k Convergence](figs/figure_marathon_convergence.png)
 
-![Convergence Plot](figs/figure_marathon_convergence.png)
+## Performance vs Size
 
-### 3. Model Efficiency
-
-The primary goal of this research was to achieve high performance within a strict parameter budget for edge applications. The chart below visualizes the massive scale difference between the Teacher and the Student.
-
-We successfully compressed the 11.8 Million parameter Teacher into a **0.89 Million parameter Student**, achieving a **92% reduction** in model size while maintaining the same hierarchical design.
+The FAKD student keeps the same compact architecture as the baseline student and
+improves Set5 x4 RGB PSNR by +0.06 dB in the verified protocol.
 
 ![Efficiency Plot](figs/figure_efficiency.png)
 
----
+## Visual Evidence
 
-## Visual Quality Analysis
+The visual comparison script loads the final 500k student checkpoints and Set5
+x4 images directly. It does not require pre-existing `results/` folders.
 
-Feature-aware distillation effectively guides the student to focus on structural fidelity. To demonstrate this, we performed a differential error analysis on the 'butterfly' image from Set5.
-
-- **Top Row:** Visual reconstruction comparison.
-- **Bottom Row (Error Maps):** The **Improvement Map (Bottom Left)** highlights exactly where Model C outperformed the Baseline. The **Red and Yellow** pixels indicate areas where the Feature-Aware model significantly reduced the reconstruction error. These improvements are concentrated along the structural edges of the wing.
+The example below is representative evidence only; the table metrics above are
+the main reproducible result.
 
 ![Visual Evidence](figs/final_evidence_butterfly.png)
 
----
+## Reproducibility
 
-## Installation and Usage
+Use the no-save helpers for paper numbers:
 
-For detailed instructions on setting up the environment, downloading datasets, and running training or testing scripts, please refer to the **[Installation Guide](docs/setup.md)**.
-
-### Quick Start
-
-To see the results immediately, you can test our pre-trained models on the Set5 dataset.
-
-**1. Test Model C (Our Best Model)**
-
-```bash
-python main_test_student.py \
-  --model_path student_weights/model_C_500k.pth \
-  --folder_gt testsets/Set5/HR \
-  --folder_lq testsets/Set5/LR_bicubic/X4
+```powershell
+D:\Conda_Envs\swinir\python.exe scripts\reproduce_set5_metrics.py students-rgb
+D:\Conda_Envs\swinir\python.exe scripts\reproduce_set5_metrics.py saved-results
+D:\Conda_Envs\swinir\python.exe scripts\reproduce_set5_metrics.py teacher
+D:\Conda_Envs\swinir\python.exe scripts\reproduce_set5_metrics.py params
+D:\Conda_Envs\swinir\python.exe scripts\benchmark_final_checkpoints.py
 ```
 
-**2. Generate Visual Comparison (Model A vs Model C)**
-We provide a demo script that loads both models, runs inference on the 'butterfly' image, and generates the error analysis maps.
+Full protocol notes, expected outputs, and caveats are in
+[`docs/reproducibility_set5.md`](docs/reproducibility_set5.md).
 
-```bash
-python scripts/run_demo.py
+## Regenerating Figures
+
+```powershell
+D:\Conda_Envs\swinir\python.exe scripts\plot_results.py
+D:\Conda_Envs\swinir\python.exe scripts\plot_marathon_convergence.py
+D:\Conda_Envs\swinir\python.exe scripts\plot_visuals.py
 ```
 
----
+## Project Layout
+
+- `main_train_student.py`: training entry point for student experiments.
+- `main_test_student.py`: student evaluation script; writes images to `results/`.
+- `main_test_swinir.py`: teacher evaluation script; use patch size 64 for the local x4 teacher.
+- `scripts/reproduce_set5_metrics.py`: no-save metric and parameter helper.
+- `scripts/benchmark_final_checkpoints.py`: no-save final-checkpoint latency helper.
+- `options/swinir/train_swinir_student_500k_A.json`: final baseline 500k config.
+- `options/swinir/train_swinir_student_500k.json`: final FAKD 500k config.
 
 ## Acknowledgements
 
-This work is built upon the official [SwinIR](https://github.com/JingyunLiang/SwinIR) and [KAIR](https://github.com/cszn/KAIR) repositories. We thank the original authors for their open-source contributions to the image restoration community.
+This work builds on the official SwinIR and KAIR repositories. The project code
+is a course-specific fork focused on reproducible lightweight-student
+experiments.

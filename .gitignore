@@ -10,11 +10,12 @@ __pycache__/
 trainsets/
 model_zoo/
 
-# Experimental results - Do not upload generated models and logs
+# Experimental results - do not upload newly generated run folders
 superresolution/
 results/
 
-# Model weights (large binary files)
+# Model weights are ignored by default. Curated final checkpoints already
+# tracked under student_weights/ are intentional project artifacts.
 *.pth
 
 # Local PDF documents

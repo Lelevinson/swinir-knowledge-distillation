@@ -77,9 +77,9 @@ Expected output:
 | Baseline/FAKD student architecture | 988,959 |
 | SwinIR-M teacher architecture | 11,900,199 |
 
-The helper instantiates the checkpoint-compatible model definitions. The older
-`utils/count_parameters.py` defaults do not match these local checkpoints and
-should not be used as the authoritative parameter count without revision.
+The helper instantiates the checkpoint-compatible model definitions. The
+standalone `utils/count_parameters.py` utility has been updated to use the same
+constructors.
 
 ## Original Evaluation Commands
 
@@ -105,10 +105,9 @@ SwinIR-M teacher:
 D:\Conda_Envs\swinir\python.exe main_test_swinir.py --model_path model_zoo\swinir\001_classicalSR_DF2K_s64w8_SwinIR-M_x4.pth --folder_gt testsets\Set5\HR --folder_lq testsets\Set5\LR_bicubic\X4 --scale 4 --training_patch_size 64
 ```
 
-Important teacher caveat: `main_test_swinir.py` defaults to
-`--training_patch_size 128`, but the local SwinIR-M x4 checkpoint name and
-checkpoint-compatible architecture use `s64`. Passing
-`--training_patch_size 64` is required for this teacher checkpoint.
+Important teacher caveat: the local SwinIR-M x4 checkpoint name and
+checkpoint-compatible architecture use `s64`. Current project scripts default to
+`--training_patch_size 64`; keep that value when evaluating this teacher.
 
 ## Latency Benchmark
 
@@ -149,10 +148,6 @@ cite as local RTX 4060 Laptop GPU timings for a synthetic 64x64 LR input patch,
 not as hardware-independent latency. The FAKD and baseline students use the same
 architecture, so their small latency difference should be treated as measurement
 noise rather than a FAKD-specific speed claim.
-
-The older `scripts/benchmark_speed.py` remains caveated because its student path
-points to `superresolution/student_C_500k_marathon/models/165000_E.pth` rather
-than the final paper checkpoint `student_weights/model_C_500k.pth`.
 
 ## Protocol Caveats
 
