@@ -1,8 +1,8 @@
-"""Regenerate current paper-facing result figures.
+"""Regenerate current paper-facing summary figures.
 
-The values here are the locally verified Set5 x4 and latency numbers documented
-in docs/reproducibility_set5.md. This script does not run inference or retrain;
-it only redraws summary figures from verified metrics.
+The values here are the locally verified Set5 x4 numbers documented in
+docs/reproducibility_set5.md. This script does not run inference or retrain; it
+only redraws summary figures from verified metrics.
 """
 
 from __future__ import annotations
@@ -24,13 +24,6 @@ PSNR_RGB = {
     "FAKD Student": 30.5133,
     "SwinIR-M Teacher": 30.9883,
 }
-
-LATENCY_MS = {
-    "SwinIR-M Teacher": 40.13,
-    "FAKD Student": 19.70,
-    "Baseline Student": 20.28,
-}
-
 
 def save_params_figure() -> None:
     labels = ["Student", "Teacher"]
@@ -98,37 +91,9 @@ def save_efficiency_figure() -> None:
     plt.close(fig)
 
 
-def save_latency_figure() -> None:
-    labels = list(LATENCY_MS.keys())
-    values = list(LATENCY_MS.values())
-    colors = ["#2F6B9A", "#4C9F70", "#7A7F87"]
-
-    fig, ax = plt.subplots(figsize=(7.0, 4.6))
-    bars = ax.bar(labels, values, color=colors, edgecolor="#222222", linewidth=0.8)
-    for bar, value in zip(bars, values):
-        ax.text(bar.get_x() + bar.get_width() / 2, value, f"{value:.2f} ms", ha="center", va="bottom", fontsize=10)
-
-    ax.set_title("Latency on 64x64 LR Input")
-    ax.set_ylabel("Mean latency (ms)")
-    ax.text(
-        0.5,
-        max(values) * 0.78,
-        "FAKD student: 2.04x faster than teacher",
-        ha="center",
-        fontsize=10,
-        bbox={"boxstyle": "round,pad=0.25", "facecolor": "white", "edgecolor": "#999999"},
-    )
-    ax.grid(axis="y", linestyle="--", alpha=0.35)
-    ax.set_axisbelow(True)
-    fig.tight_layout()
-    fig.savefig(FIG_DIR / "figure_latency.png", dpi=300)
-    plt.close(fig)
-
-
 def main() -> None:
     save_params_figure()
     save_efficiency_figure()
-    save_latency_figure()
     print(f"Saved figures to {FIG_DIR}")
 
 

@@ -10,7 +10,7 @@ same-capacity student over a pixel-loss-only baseline on Set5 x4 while keeping
 the inference-time student architecture unchanged. This repository does not
 claim broad state-of-the-art performance.
 
-![Architecture Diagram](figs/figure_architecture.jpg)
+![Architecture Diagram](figs/figure_architecture.png)
 
 ## Verified Result Summary
 
@@ -55,8 +55,6 @@ faster than the teacher with a 50.91% latency reduction. Latency is
 hardware-dependent; cite the device and benchmark protocol with the numbers.
 
 ![Model Size](figs/figure_params.png)
-
-![Latency](figs/figure_latency.png)
 
 ## Training Dynamics
 

@@ -1,0 +1,19 @@
+Dear Program Chairs,
+
+We are pleased to submit our manuscript, "Efficient Swin Transformer Image Super-Resolution via Intermediate Feature Distillation," for consideration.
+
+This paper studies lightweight single-image super-resolution under practical parameter and latency constraints. While Swin Transformer-based restoration models such as SwinIR achieve strong reconstruction quality, their computational cost limits deployment in resource-constrained settings. To address this issue, we propose a Feature-Aware Knowledge Distillation (FAKD) framework that trains a compact SwinIR-style student model using intermediate feature guidance from a frozen SwinIR-M teacher.
+
+The main contribution of the manuscript is an intermediate feature distillation strategy that aligns teacher and student representations through learnable projection modules. This allows the student to benefit from the teacher's hierarchical feature representations during training while preserving the same compact inference architecture at deployment. The training objective combines pixel reconstruction, response-level distillation, and feature-level supervision.
+
+Our experimental results on DIV2K training data and Set5 x4 evaluation show that the proposed method improves a same-capacity lightweight student from 30.45 dB to 30.51 dB RGB PSNR under the validation protocol, without adding inference-time parameters or branches. Under the standard Y-channel comparison protocol, the FAKD student also improves over the baseline student from 32.37 dB to 32.41 dB. The final student model remains compact at approximately 0.99M parameters and achieves a 2.04x inference speedup over the SwinIR-M teacher in our latency benchmark.
+
+We believe this work will be of interest to reviewers and readers working on image restoration, lightweight neural networks, model compression, and knowledge distillation. The manuscript emphasizes a controlled training-paradigm comparison rather than claiming a new state-of-the-art backbone, and it discusses the limitations of the current Set5-focused evaluation.
+
+Thank you for considering our submission. We appreciate your time and the reviewers' feedback.
+
+Sincerely,
+
+Levinson, Marvel Aiken, Carlene Amelya, Syed Humayoon Shah, and Naeem Ul Islam
+International Bachelor Program in Informatics, Yuan Ze University
+Department of Electrical Engineering, Yuan Ze University
